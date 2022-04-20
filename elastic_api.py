@@ -79,6 +79,18 @@ def get_all_products(token):
     return response.json()
 
 
+def get_product_info(elastic_token, product_id):
+
+    headers = {
+        'Authorization': f'Bearer {elastic_token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
 def delete_product(token, product_id):
     headers = {
         'Authorization': f'Bearer {token}',
@@ -264,6 +276,19 @@ def get_flow_id_by_slug(token, flow_slug):
     return next(iter(response.json().get('data'))).get('relationships')['flow']['data']['id']
 
 
+def get_image_link(elastic_token, product_image_id):
+
+    headers = {
+        f'Authorization': f'Bearer {elastic_token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/files/{product_image_id}', headers=headers)
+    response.raise_for_status()
+    image_link = response.json()['data']['link']['href']
+
+    return image_link
+
+
 def add_addresses(client_secret, client_id):
 
     token = get_client_auth(client_secret, client_id).get('access_token')
@@ -387,6 +412,32 @@ def create_customer(token, user_id, email):
     response.raise_for_status()
 
     return response.json()
+
+
+def check_customer(elastic_token, client_id):
+
+    headers = {
+        'Authorization': f'Bearer {elastic_token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/customers/{client_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def renew_token(bot_context):
+    """
+    :param bot_context: this is a context object passed to the callback called by :class:`telegram.ext.Handler`
+    or by the :class:`telegram.ext.Dispatcher`
+    :return: None
+    """
+    client_secret = bot_context.bot_data['client_secret']
+    client_id = bot_context.bot_data['client_id']
+    elastic_auth = get_client_auth(client_secret, client_id)
+    bot_context.bot_data['access_token'] = elastic_auth.get('access_token')
+    bot_context.bot_data['token_expires_in'] = elastic_auth.get('expires_in')
+    bot_context.job_queue.run_once(renew_token, when=bot_context.bot_data['token_expires_in'])
 
 
 def main():
