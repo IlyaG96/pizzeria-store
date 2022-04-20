@@ -264,7 +264,10 @@ def get_flow_id_by_slug(token, flow_slug):
     return next(iter(response.json().get('data'))).get('relationships')['flow']['data']['id']
 
 
-def add_addresses(token):
+def add_addresses(client_secret, client_id):
+
+    token = get_client_auth(client_secret, client_id).get('access_token')
+
     fields = get_fields_by_flow(token, flow_slug='pizzeria')
     fields_slugs = [field['slug'] for field in fields['data']]
     addresses = fetch_addresses()
@@ -281,7 +284,9 @@ def add_addresses(token):
             print(f'Something in going wrong {e}')
 
 
-def add_pizzas(token):
+def add_pizzas(client_secret, client_id):
+    token = get_client_auth(client_secret, client_id).get('access_token')
+
     menu = fetch_menu()
     for num, product in enumerate(menu):
         try:
@@ -292,15 +297,103 @@ def add_pizzas(token):
             print(f'Something in going wrong {e}')
 
 
+def add_product_to_cart(token, cart_id, product_id, quantity):
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+    }
+
+    json_data = {
+        'data': {
+            'id': product_id,
+            'type': 'cart_item',
+            'quantity': quantity,
+        },
+    }
+
+    response = requests.post(f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers, json=json_data)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def remove_product_from_cart(token, cart_id, product_id):
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+    }
+    response = requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}/items/{product_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def create_cart(token, tg_id):
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json',
+    }
+    json_data = {
+        'data': {
+            'name': tg_id,
+            'description': f'cart of user {tg_id}',
+        }
+    }
+    response = requests.post('https://api.moltin.com/v2/carts', headers=headers, json=json_data)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def get_cart(token, cart_id):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def get_cart_total_price(token, cart_id):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def create_customer(token, user_id, email):
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    json_data = {
+        'data': {
+            'type': 'customer',
+            'name': f'{user_id}',
+            'email': f'{email}',
+            'password': 'mysecretpassword',
+        },
+    }
+
+    response = requests.post('https://api.moltin.com/v2/customers', headers=headers, json=json_data)
+    response.raise_for_status()
+
+    return response.json()
+
+
 def main():
     env = Env()
     env.read_env()
-
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
     client_id = env.str('ELASTIC_CLIENT_ID')
-    # get_client_auth(client_secret, client_id)
-    token = ''
-    add_addresses(token)
 
 
 if __name__ == '__main__':
