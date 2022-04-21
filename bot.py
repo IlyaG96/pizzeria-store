@@ -46,9 +46,9 @@ def handle_menu(update, context):
     products = get_all_products(access_token).get('data')
     pizzas_qty = 5
     chunked_products = list(chunked(products, pizzas_qty))
-    chunked_products2 = BidirectionalIterator(chunked_products)
-    context.bot_data['chunked_products'] = chunked_products2
-
+    iterable_products = BidirectionalIterator(chunked_products)
+    context.bot_data['iterable_products'] = iterable_products
+    context.bot_data['products_pack'] = next(iter(chunked_products))
     user_id = update.effective_user.id
     cart_id = redis_base.hget(user_id, 'cart')
 
@@ -59,7 +59,7 @@ def handle_menu(update, context):
 
     keyboard = [
         [InlineKeyboardButton(product.get('name'),
-                              callback_data=product.get('id')) for product in next(iter(chunked_products))],
+                              callback_data=product.get('id')) for product in context.bot_data['products_pack']],
         [InlineKeyboardButton('Назад', callback_data='Назад')],
         [InlineKeyboardButton('Вперед', callback_data='Вперед')],
         [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
@@ -75,27 +75,29 @@ def handle_menu(update, context):
 def handle_products(update, context):
     user_id = update.effective_user.id
     callback_query = update.callback_query
-    chunked_products = context.bot_data['chunked_products']
+    iterable_products = context.bot_data['iterable_products']
 
     if callback_query.data == 'Назад':
-        products_pack = chunked_products.prev()
-        context.bot_data['chunked_products'] = chunked_products
+        products_pack = iterable_products.prev()
+        context.bot_data['products_pack'] = products_pack
 
     elif callback_query.data == 'Вперед':
-        products_pack = chunked_products.next()
-        context.bot_data['chunked_products'] = chunked_products
+        products_pack = iterable_products.next()
+        context.bot_data['products_pack'] = products_pack
 
     keyboard = [
-        [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products_pack],
+        [InlineKeyboardButton(product.get('name'),
+                              callback_data=product.get('id')) for product in context.bot_data['products_pack']],
         [InlineKeyboardButton('Назад', callback_data='Назад')],
         [InlineKeyboardButton('Вперед', callback_data='Вперед')],
         [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.edit_message_text(text=f'Смотри, какая пицца!',
-                                  chat_id=user_id,
-                                  message_id=callback_query.message.message_id,
-                                  reply_markup=reply_markup)
 
+    context.bot.send_message(text=f'Смотри, какая пицца!',
+                             chat_id=user_id,
+                             reply_markup=reply_markup)
+    context.bot.delete_message(chat_id=callback_query.message.chat_id,
+                               message_id=callback_query.message.message_id)
     return BotStates.HANDLE_DESCRIPTION
 
 
@@ -114,9 +116,7 @@ def handle_description(update, context):
 
     keyboard = [[
         InlineKeyboardButton('В меню', callback_data='В меню'),
-        InlineKeyboardButton('+ 1 кг', callback_data='1'),
-        InlineKeyboardButton('+ 5 кг', callback_data='5'),
-        InlineKeyboardButton('+ 10 кг', callback_data='10'),
+        InlineKeyboardButton('Добавить в корзину', callback_data='Добавить в корзину'),
         InlineKeyboardButton('Корзина', callback_data='Корзина')
     ]]
 
@@ -267,17 +267,18 @@ def main():
         states={
             BotStates.HANDLE_MENU: [
                 CallbackQueryHandler(handle_menu),
-                CallbackQueryHandler(handle_cart, pattern='^Корзина'),
+                CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
             ],
             BotStates.HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(handle_menu, pattern='^В меню'),
-                CallbackQueryHandler(handle_cart, pattern='^Корзина'),
-                CallbackQueryHandler(update_cart, pattern='^[0-9]+$'),
+                CallbackQueryHandler(handle_products, pattern='^В меню$'),
+                CallbackQueryHandler(handle_cart, pattern='^Корзина$'),
+                CallbackQueryHandler(update_cart, pattern='^Добавить в корзину$'),
                 CallbackQueryHandler(handle_products, pattern='^Назад$'),
-                CallbackQueryHandler(handle_products, pattern='^Вперед'),
+                CallbackQueryHandler(handle_products, pattern='^Вперед$'),
+                CallbackQueryHandler(handle_description)
             ],
             BotStates.HANDLE_CART: [
-                CallbackQueryHandler(handle_menu, pattern='^В меню$'),
+                CallbackQueryHandler(handle_products, pattern='^В меню$'),
                 CallbackQueryHandler(get_user_email, pattern='^Оплатить$'),
                 CallbackQueryHandler(handle_cart),
             ],
