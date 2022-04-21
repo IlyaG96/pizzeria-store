@@ -1,5 +1,5 @@
 from textwrap import dedent
-
+import requests
 
 def format_product_description(product_description):
     product_description = product_description['data']
@@ -74,3 +74,21 @@ def build_menu(buttons, n_cols,
         for button in footer_buttons:
             menu.append(button)
     return menu
+
+
+def fetch_coordinates(apikey, address):
+    base_url = "https://geocode-maps.yandex.ru/1.x"
+    response = requests.get(base_url, params={
+        "geocode": address,
+        "apikey": apikey,
+        "format": "json",
+    })
+    response.raise_for_status()
+    found_places = response.json()['response']['GeoObjectCollection']['featureMember']
+
+    if not found_places:
+        return None
+
+    most_relevant = found_places[0]
+    lon, lat = most_relevant['GeoObject']['Point']['pos'].split(' ')
+    return lat, lon
