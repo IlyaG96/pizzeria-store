@@ -85,7 +85,6 @@ def get_product_info(elastic_token, product_id):
 
     response = requests.get(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
     response.raise_for_status()
-    print(response.json())
 
     return response.json()
 
