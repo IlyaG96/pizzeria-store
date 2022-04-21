@@ -28,7 +28,6 @@ def get_client_auth(client_secret, client_id):
     response = requests.post('https://api.moltin.com/oauth/access_token',
                              data=data)
     response.raise_for_status()
-    print(response.json())
 
     return response.json()
 
