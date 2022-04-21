@@ -329,6 +329,17 @@ def create_entry(token, fields_slugs, values, flow_slug):
     return response.json()
 
 
+def get_all_entries(token, flow_slug):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
 def get_flow_id_by_slug(token, flow_slug):
     headers = {
         'Authorization': f'Bearer {token}',
@@ -368,7 +379,7 @@ def add_addresses(client_secret, client_id):
             ]
             create_entry(token, fields_slugs, values, flow_slug='pizzeria')
         except Exception as e:
-            print(f'Something in going wrong {e}')
+            print(f'Something is going wrong {e}')
 
 
 def add_pizzas(client_secret, client_id):
@@ -381,7 +392,7 @@ def add_pizzas(client_secret, client_id):
             img_id = upload_image(token, product['product_image']['url'])['data']['id']
             bind_image_with_product(token, img_id, product_id)
         except Exception as e:
-            print(f'Something in going wrong {e}')
+            print(f'Something is going wrong {e}')
 
 
 def add_product_to_cart(token, cart_id, product_id):
@@ -504,6 +515,7 @@ def main():
     env.read_env()
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
     client_id = env.str('ELASTIC_CLIENT_ID')
+
 
 if __name__ == '__main__':
     main()
