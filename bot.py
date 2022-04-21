@@ -41,9 +41,9 @@ def cancel(update, context):
 def handle_menu(update, context):
     bot = context.bot
     redis_base = context.bot_data['redis_base']
-    access_token = context.bot_data['access_token']
+    token = context.bot_data['token']
 
-    products = get_all_products(access_token).get('data')
+    products = get_all_products(token).get('data')
     pizzas_qty = 5
     chunked_products = list(chunked(products, pizzas_qty))
     iterable_products = BidirectionalIterator(chunked_products)
@@ -53,7 +53,7 @@ def handle_menu(update, context):
     cart_id = redis_base.hget(user_id, 'cart')
 
     if not cart_id:
-        cart_id = create_cart(access_token, str(user_id))['data']['id']
+        cart_id = create_cart(token, str(user_id))['data']['id']
         redis_base.hset(user_id, 'cart', cart_id)
     context.user_data['cart_id'] = cart_id
 
@@ -104,14 +104,14 @@ def handle_products(update, context):
 def handle_description(update, context):
     bot = context.bot
 
-    access_token = context.bot_data['access_token']
+    token = context.bot_data['token']
     callback_query = update.callback_query
     product_id = callback_query.data
     context.user_data['product_id'] = product_id
 
-    product_description = get_product_info(access_token, product_id)
+    product_description = get_product_info(token, product_id)
     product_image_id = product_description['data']['relationships']['main_image']['data']['id']
-    image_link = get_image_link(access_token, product_image_id)
+    image_link = get_image_link(token, product_image_id)
     formatted_product_description = format_product_description(product_description)
 
     keyboard = [[
@@ -138,14 +138,14 @@ def handle_description(update, context):
 
 
 def update_cart(update, context):
-    access_token = context.user_data['access_token']
+    token = context.user_data['token']
     cart_id = context.user_data['cart_id']
     product_id = context.user_data['product_id']
 
     callback_query = update.callback_query
     quantity = int(callback_query.data)
 
-    add_product_to_cart(access_token, cart_id, product_id, quantity)
+    add_product_to_cart(token, cart_id, product_id, quantity)
 
     return BotStates.HANDLE_DESCRIPTION
 
@@ -153,16 +153,16 @@ def update_cart(update, context):
 def handle_cart(update, context):
     bot = context.bot
 
-    access_token = context.bot_data['access_token']
+    token = context.bot_data['token']
     cart_id = context.user_data['cart_id']
     callback_query = update.callback_query
-    cart_items = get_cart(access_token, cart_id)
+    cart_items = get_cart(token, cart_id)
 
     context.user_data['cart_items'] = [item.get('id') for item in cart_items['data']]
     if callback_query.data in context.user_data.get('cart_items'):
         product_id = callback_query.data
-        remove_product_from_cart(access_token, cart_id, product_id)
-        cart_items = get_cart(access_token, cart_id)
+        remove_product_from_cart(token, cart_id, product_id)
+        cart_items = get_cart(token, cart_id)
 
     keyboard = [
         [InlineKeyboardButton('В меню',
@@ -174,7 +174,7 @@ def handle_cart(update, context):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    total_price = get_cart_total_price(access_token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
+    total_price = get_cart_total_price(token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
 
     context.user_data['total_price'] = total_price
 
@@ -220,15 +220,15 @@ def get_user_email(update, context):
 def add_client_to_cms(update, context):
     bot = context.bot
 
-    access_token = context.bot_data['access_token']
+    token = context.bot_data['token']
 
     email = update.message.text
 
-    customer_id = create_customer(access_token,
+    customer_id = create_customer(token,
                                   user_id=update.message.chat_id,
                                   email=email)['data']['id']
 
-    check_customer(access_token, customer_id)
+    check_customer(token, customer_id)
 
     bot.send_message(
         text=f'Ваш заказ успешно создан, номер заказа: {customer_id}',
