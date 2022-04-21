@@ -16,7 +16,7 @@ from elastic_api import (get_all_products,
                          check_customer,
                          renew_token)
 
-from bot_tools import BidirectionalIterator, format_cart, format_product_description
+from bot_tools import BidirectionalIterator, format_cart, format_product_description, build_menu
 
 
 class BotStates(Enum):
@@ -44,7 +44,7 @@ def handle_menu(update, context):
     token = context.bot_data['token']
 
     products = get_all_products(token).get('data')
-    pizzas_qty = 5
+    pizzas_qty = 6
     chunked_products = list(chunked(products, pizzas_qty))
     iterable_products = BidirectionalIterator(chunked_products)
     context.bot_data['iterable_products'] = iterable_products
@@ -57,12 +57,13 @@ def handle_menu(update, context):
         redis_base.hset(user_id, 'cart', cart_id)
     context.user_data['cart_id'] = cart_id
 
-    keyboard = [
+    keyboard = build_menu(
         [InlineKeyboardButton(product.get('name'),
                               callback_data=product.get('id')) for product in context.bot_data['products_pack']],
-        [InlineKeyboardButton('Назад', callback_data='Назад')],
-        [InlineKeyboardButton('Вперед', callback_data='Вперед')],
-        [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
+        n_cols=3,
+        footer_buttons=[[InlineKeyboardButton('Назад', callback_data='Назад')],
+                       [InlineKeyboardButton('Вперед', callback_data='Вперед')],
+                       [InlineKeyboardButton('Корзина', callback_data='Корзина')]])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     bot.send_message(text='Смотри, какая пицца!',
@@ -85,12 +86,13 @@ def handle_products(update, context):
         products_pack = iterable_products.next()
         context.bot_data['products_pack'] = products_pack
 
-    keyboard = [
+    keyboard = build_menu(
         [InlineKeyboardButton(product.get('name'),
                               callback_data=product.get('id')) for product in context.bot_data['products_pack']],
-        [InlineKeyboardButton('Назад', callback_data='Назад')],
-        [InlineKeyboardButton('Вперед', callback_data='Вперед')],
-        [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
+        n_cols=3,
+        footer_buttons=[[InlineKeyboardButton('Назад', callback_data='Назад')],
+                        [InlineKeyboardButton('Вперед', callback_data='Вперед')],
+                        [InlineKeyboardButton('Корзина', callback_data='Корзина')]])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     context.bot.send_message(text=f'Смотри, какая пицца!',
