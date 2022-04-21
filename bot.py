@@ -2,7 +2,7 @@ import redis
 from enum import Enum, auto
 from environs import Env
 from telegram.ext import Updater, CallbackQueryHandler, CommandHandler, MessageHandler, Filters, ConversationHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, ReplyKeyboardMarkup
 from more_itertools import chunked
 from elastic_api import (get_all_products,
                          get_product_info,
@@ -16,7 +16,8 @@ from elastic_api import (get_all_products,
                          check_customer,
                          renew_token)
 
-from bot_tools import BidirectionalIterator, format_cart, format_product_description, build_menu
+from bot_tools import BidirectionalIterator, format_cart, format_product_description, build_menu, fetch_coordinates
+from geopy import distance
 
 
 class BotStates(Enum):
@@ -25,7 +26,9 @@ class BotStates(Enum):
     HANDLE_PRODUCTS = auto()
     HANDLE_DESCRIPTION = auto()
     HANDLE_CART = auto()
+    WAITING_GEO = auto()
     WAITING_EMAIL = auto()
+    PROCESS_GEO = auto()
 
 
 def cancel(update, context):
@@ -44,7 +47,7 @@ def handle_menu(update, context):
     token = context.bot_data['token']
 
     products = get_all_products(token).get('data')
-    pizzas_qty = 6
+    pizzas_qty = 4
     chunked_products = list(chunked(products, pizzas_qty))
     iterable_products = BidirectionalIterator(chunked_products)
     context.bot_data['iterable_products'] = iterable_products
@@ -215,6 +218,43 @@ def get_user_email(update, context):
     return BotStates.WAITING_EMAIL
 
 
+def get_user_address(update, context):
+
+    buttons = [
+        [KeyboardButton('Определеить мое местоположение', request_location=True)]
+    ]
+
+    reply_markup = ReplyKeyboardMarkup(buttons, resize_keyboard=True)
+
+    update.message.reply_text(
+        'Пожалуйста, отправьте нам свой адрес или разрешите определить его автоматически',
+        reply_markup=reply_markup
+    )
+
+    return BotStates.WAITING_GEO
+
+
+def process_user_address(update, context):
+
+    if update.message.location:
+        context.user_data['location'] = update.message.location['latitude'], update.message.location['longitude']
+        print(context.user_data['location'])
+
+    elif update.message.text:
+        address = update.message.text
+        coordinates = fetch_coordinates(context.bot_data['yandex_geo_api'], address)
+        if not coordinates:
+            update.message.reply_text(
+                'Адрес некорректен. Проверьте то, что вы ввели, или отправьте гео-точку'
+            )
+        context.user_data['location'] = coordinates
+        print(context.user_data['location'])
+
+        return BotStates.WAITING_GEO
+
+    return BotStates.PROCESS_GEO
+
+
 def add_client_to_cms(update, context):
     bot = context.bot
 
@@ -243,6 +283,7 @@ def main():
     redis_password = env.str('REDIS_PASSWORD')
     client_id = env.str('ELASTIC_CLIENT_ID')
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
+    yandex_geo_api = env.str('YANDEX_GEO_API')
 
     updater = Updater(telegram_token)
 
@@ -256,6 +297,7 @@ def main():
     dispatcher.bot_data['redis_base'] = redis_base
     dispatcher.bot_data['client_id'] = client_id
     dispatcher.bot_data['client_secret'] = client_secret
+    dispatcher.bot_data['yandex_geo_api'] = yandex_geo_api
 
     fish_shop = ConversationHandler(
         entry_points=[
@@ -281,10 +323,18 @@ def main():
                 CallbackQueryHandler(handle_cart),
             ],
             BotStates.WAITING_EMAIL: [
-                MessageHandler(Filters.regex('^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'), add_client_to_cms),
+                MessageHandler(Filters.regex('^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'), get_user_address),
                 CallbackQueryHandler(handle_cart, pattern='^Назад$'),
                 CallbackQueryHandler(get_user_email)
-            ]
+            ],
+            BotStates.WAITING_GEO: [
+                MessageHandler(Filters.location, process_user_address),
+                MessageHandler(Filters.text, process_user_address)
+            ],
+            BotStates.PROCESS_GEO: [
+
+            ],
+
 
         },
 
