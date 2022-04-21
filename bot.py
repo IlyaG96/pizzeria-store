@@ -58,7 +58,8 @@ def handle_menu(update, context):
     context.user_data['cart_id'] = cart_id
 
     keyboard = [
-        [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in chunked_products[0]],
+        [InlineKeyboardButton(product.get('name'),
+                              callback_data=product.get('id')) for product in next(iter(chunked_products))],
         [InlineKeyboardButton('Назад', callback_data='Назад')],
         [InlineKeyboardButton('Вперед', callback_data='Вперед')],
         [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
@@ -90,7 +91,7 @@ def handle_products(update, context):
         [InlineKeyboardButton('Вперед', callback_data='Вперед')],
         [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    context.bot.edit_message_text(text='Смотри, какая пицца!',
+    context.bot.edit_message_text(text=f'Смотри, какая пицца!',
                                   chat_id=user_id,
                                   message_id=callback_query.message.message_id,
                                   reply_markup=reply_markup)
