@@ -61,3 +61,16 @@ class BidirectionalIterator(object):
 
     def __iter__(self):
         return self
+
+
+def build_menu(buttons, n_cols,
+               header_buttons=None,
+               footer_buttons=None):
+    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+    if header_buttons:
+        for button in header_buttons:
+            menu.insert(0, button)
+    if footer_buttons:
+        for button in footer_buttons:
+            menu.append(button)
+    return menu
