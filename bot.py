@@ -1,9 +1,9 @@
 import redis
 from enum import Enum, auto
 from environs import Env
-from telegram import ReplyKeyboardRemove
 from telegram.ext import Updater, CallbackQueryHandler, CommandHandler, MessageHandler, Filters, ConversationHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
+from more_itertools import chunked
 from elastic_api import (get_all_products,
                          get_product_info,
                          get_image_link,
@@ -16,12 +16,13 @@ from elastic_api import (get_all_products,
                          check_customer,
                          renew_token)
 
-from bot_tools import format_cart, format_product_description
+from bot_tools import BidirectionalIterator, format_cart, format_product_description
 
 
 class BotStates(Enum):
     START = auto()
     HANDLE_MENU = auto()
+    HANDLE_PRODUCTS = auto()
     HANDLE_DESCRIPTION = auto()
     HANDLE_CART = auto()
     WAITING_EMAIL = auto()
@@ -43,6 +44,10 @@ def handle_menu(update, context):
     access_token = context.bot_data['access_token']
 
     products = get_all_products(access_token).get('data')
+    pizzas_qty = 5
+    chunked_products = list(chunked(products, pizzas_qty))
+    chunked_products2 = BidirectionalIterator(chunked_products)
+    context.bot_data['chunked_products'] = chunked_products2
 
     user_id = update.effective_user.id
     cart_id = redis_base.hget(user_id, 'cart')
@@ -50,17 +55,45 @@ def handle_menu(update, context):
     if not cart_id:
         cart_id = create_cart(access_token, str(user_id))['data']['id']
         redis_base.hset(user_id, 'cart', cart_id)
-
     context.user_data['cart_id'] = cart_id
 
     keyboard = [
-        [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products],
+        [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in chunked_products[0]],
+        [InlineKeyboardButton('Назад', callback_data='Назад')],
+        [InlineKeyboardButton('Вперед', callback_data='Вперед')],
         [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    bot.send_message(text='Мы рыбов продоем! Показать?',
+    bot.send_message(text='Смотри, какая пицца!',
                      chat_id=user_id,
                      reply_markup=reply_markup)
+
+    return BotStates.HANDLE_DESCRIPTION
+
+
+def handle_products(update, context):
+    user_id = update.effective_user.id
+    callback_query = update.callback_query
+    chunked_products = context.bot_data['chunked_products']
+
+    if callback_query.data == 'Назад':
+        products_pack = chunked_products.prev()
+        context.bot_data['chunked_products'] = chunked_products
+
+    elif callback_query.data == 'Вперед':
+        products_pack = chunked_products.next()
+        context.bot_data['chunked_products'] = chunked_products
+
+    keyboard = [
+        [InlineKeyboardButton(product.get('name'), callback_data=product.get('id')) for product in products_pack],
+        [InlineKeyboardButton('Назад', callback_data='Назад')],
+        [InlineKeyboardButton('Вперед', callback_data='Вперед')],
+        [InlineKeyboardButton('Корзина', callback_data='Корзина')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.edit_message_text(text='Смотри, какая пицца!',
+                                  chat_id=user_id,
+                                  message_id=callback_query.message.message_id,
+                                  reply_markup=reply_markup)
 
     return BotStates.HANDLE_DESCRIPTION
 
@@ -79,7 +112,7 @@ def handle_description(update, context):
     formatted_product_description = format_product_description(product_description)
 
     keyboard = [[
-        InlineKeyboardButton('Назад', callback_data='Назад'),
+        InlineKeyboardButton('В меню', callback_data='В меню'),
         InlineKeyboardButton('+ 1 кг', callback_data='1'),
         InlineKeyboardButton('+ 5 кг', callback_data='5'),
         InlineKeyboardButton('+ 10 кг', callback_data='10'),
@@ -104,7 +137,6 @@ def handle_description(update, context):
 
 
 def update_cart(update, context):
-
     access_token = context.user_data['access_token']
     cart_id = context.user_data['cart_id']
     product_id = context.user_data['product_id']
@@ -166,7 +198,6 @@ def get_user_email(update, context):
                                                            callback_data='Назад')]])
 
     if context.user_data['total_price'] == '0':
-
         bot.edit_message_text(
             text='Похоже, что в корзине нет товаров.',
             chat_id=callback_query.message.chat_id,
@@ -238,10 +269,11 @@ def main():
                 CallbackQueryHandler(handle_cart, pattern='^Корзина'),
             ],
             BotStates.HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(handle_menu, pattern='^Назад$'),
+                CallbackQueryHandler(handle_menu, pattern='^В меню'),
                 CallbackQueryHandler(handle_cart, pattern='^Корзина'),
                 CallbackQueryHandler(update_cart, pattern='^[0-9]+$'),
-                CallbackQueryHandler(handle_description),
+                CallbackQueryHandler(handle_products, pattern='^Назад$'),
+                CallbackQueryHandler(handle_products, pattern='^Вперед'),
             ],
             BotStates.HANDLE_CART: [
                 CallbackQueryHandler(handle_menu, pattern='^В меню$'),
