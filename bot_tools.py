@@ -49,12 +49,14 @@ class BidirectionalIterator(object):
             self.index += 1
             result = self.collection[self.index]
         except IndexError:
+            self.index -= 1
             raise StopIteration
         return result
 
     def prev(self):
         self.index -= 1
         if self.index < 0:
+            self.index = 0
             raise StopIteration
         return self.collection[self.index]
 
