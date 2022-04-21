@@ -510,11 +510,24 @@ def renew_token(bot_context):
     bot_context.job_queue.run_once(renew_token, when=bot_context.bot_data['token_expires_in'])
 
 
+def fetch_pizzerias_with_coordinates(token, flow_slug):
+    pizzerias = get_all_entries(token, flow_slug)['data']
+    pizzerias_with_coordinates = {}
+    for pizzeria in pizzerias:
+        pizzerias_with_coordinates[pizzeria['alias']] = {
+            'address': pizzeria['address'],
+            'coordinates': (pizzeria['longitude'], pizzeria['latitude'])
+        }
+    return pizzerias_with_coordinates
+
+
 def main():
     env = Env()
     env.read_env()
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
     client_id = env.str('ELASTIC_CLIENT_ID')
+ #   token = get_client_auth(client_secret, client_id).get('access_token')
+ #   fetch_pizzerias_with_coordinates(token, 'pizzeria')
 
 
 if __name__ == '__main__':
