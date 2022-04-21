@@ -138,14 +138,10 @@ def handle_description(update, context):
 
 
 def update_cart(update, context):
-    token = context.user_data['token']
+    token = context.bot_data['token']
     cart_id = context.user_data['cart_id']
     product_id = context.user_data['product_id']
-
-    callback_query = update.callback_query
-    quantity = int(callback_query.data)
-
-    add_product_to_cart(token, cart_id, product_id, quantity)
+    add_product_to_cart(token, cart_id, product_id)
 
     return BotStates.HANDLE_DESCRIPTION
 
