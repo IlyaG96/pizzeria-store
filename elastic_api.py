@@ -79,13 +79,13 @@ def get_all_products(token):
 
 
 def get_product_info(elastic_token, product_id):
-
     headers = {
         'Authorization': f'Bearer {elastic_token}',
     }
 
     response = requests.get(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
     response.raise_for_status()
+    print(response.json())
 
     return response.json()
 
@@ -150,6 +150,72 @@ def bind_image_with_product(token, image_id, product_id):
     response = requests.post(f'https://api.moltin.com/v2/products/{product_id}/relationships/main-image',
                              headers=headers,
                              json=json_data)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def create_currency(token, currency, format):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    json_data = {
+        'data': {
+            'type': 'currency',
+            'code': 'RUB',
+            'exchange_rate': 1,
+            'format': '{price}',
+            'decimal_point': '.',
+            'thousand_separator': ',',
+            'decimal_places': 2,
+            'default': True,
+            'enabled': True,
+        },
+    }
+
+    response = requests.post('https://api.moltin.com/v2/currencies', headers=headers, json=json_data)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def get_all_currencies(token):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    response = requests.get('https://api.moltin.com/v2/currencies', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def delete_currency(token, currency_id):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    response = requests.delete(f'https://api.moltin.com/v2/currencies/{currency_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
+def update_currency(token, currency_id):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    json_data = {
+        'data': {
+            'type': 'currency',
+            'exchange_rate': 1.0,
+            'format': '{price}',
+        },
+    }
+
+    response = requests.put(f'https://api.moltin.com/v2/currencies/{currency_id}', headers=headers, json=json_data)
     response.raise_for_status()
 
     return response.json()
@@ -276,7 +342,6 @@ def get_flow_id_by_slug(token, flow_slug):
 
 
 def get_image_link(elastic_token, product_image_id):
-
     headers = {
         f'Authorization': f'Bearer {elastic_token}',
     }
@@ -289,7 +354,6 @@ def get_image_link(elastic_token, product_image_id):
 
 
 def add_addresses(client_secret, client_id):
-
     token = get_client_auth(client_secret, client_id).get('access_token')
 
     fields = get_fields_by_flow(token, flow_slug='pizzeria')
@@ -321,17 +385,17 @@ def add_pizzas(client_secret, client_id):
             print(f'Something in going wrong {e}')
 
 
-def add_product_to_cart(token, cart_id, product_id, quantity):
+def add_product_to_cart(token, cart_id, product_id):
     headers = {
         'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json',
+        'X-MOLTIN-CURRENCY': 'RUB'
     }
 
     json_data = {
         'data': {
             'id': product_id,
             'type': 'cart_item',
-            'quantity': quantity,
+            'quantity': 1,
         },
     }
 
@@ -342,7 +406,6 @@ def add_product_to_cart(token, cart_id, product_id, quantity):
 
 
 def remove_product_from_cart(token, cart_id, product_id):
-
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json',
@@ -393,7 +456,6 @@ def get_cart_total_price(token, cart_id):
 
 
 def create_customer(token, user_id, email):
-
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -414,7 +476,6 @@ def create_customer(token, user_id, email):
 
 
 def check_customer(elastic_token, client_id):
-
     headers = {
         'Authorization': f'Bearer {elastic_token}',
     }
@@ -444,7 +505,6 @@ def main():
     env.read_env()
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
     client_id = env.str('ELASTIC_CLIENT_ID')
-
 
 if __name__ == '__main__':
     main()
