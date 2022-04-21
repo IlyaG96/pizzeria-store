@@ -46,8 +46,8 @@ class BidirectionalIterator(object):
 
     def next(self):
         try:
-            result = self.collection[self.index]
             self.index += 1
+            result = self.collection[self.index]
         except IndexError:
             raise StopIteration
         return result
