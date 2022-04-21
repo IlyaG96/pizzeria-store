@@ -3,7 +3,6 @@ from textwrap import dedent
 
 def format_product_description(product_description):
     product_description = product_description['data']
-    print(product_description)
 
     formatted_product_description = dedent(
         f'''
