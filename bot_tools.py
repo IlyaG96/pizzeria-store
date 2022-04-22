@@ -19,14 +19,13 @@ def format_product_description(product_description):
 
 def format_cart(cart_items, total_price):
     cart = cart_items['data']
-    formatted_cart = ''
+    formatted_cart = 'В корзине:'
     for item in cart:
         product = item['name']
         quantity = item['quantity']
         price = item['meta']['display_price']['without_tax']['value']['formatted']
         formatted_cart += dedent(
             f'''
-        В корзине:
         Пицца {product}
         В количестве: {quantity} шт
         На сумму: {float(price) * 100} руб.
