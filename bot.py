@@ -1,11 +1,18 @@
 from textwrap import dedent
-
 import redis
 from enum import Enum, auto
 from environs import Env
-from telegram.ext import Updater, CallbackQueryHandler, CommandHandler, MessageHandler, Filters, ConversationHandler, Handler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, \
-    ReplyKeyboardMarkup
+from telegram.ext import (Updater,
+                          CallbackQueryHandler,
+                          CommandHandler,
+                          MessageHandler,
+                          Filters,
+                          ConversationHandler)
+from telegram import (InlineKeyboardButton,
+                      InlineKeyboardMarkup,
+                      ReplyKeyboardRemove,
+                      KeyboardButton,
+                      ReplyKeyboardMarkup)
 from more_itertools import chunked
 from elastic_api import (get_all_products,
                          get_product_info,
@@ -37,6 +44,8 @@ class BotStates(Enum):
     WAITING_GEO = auto()
     WAITING_EMAIL = auto()
     PROCESS_DELIVERY = auto()
+    ACCEPT_PICKUP = auto()
+    ACCEPT_DELIVERY = auto()
 
 
 def cancel(update, context):
@@ -55,7 +64,7 @@ def handle_menu(update, context):
     token = context.bot_data['token']
 
     products = get_all_products(token).get('data')
-    pizzas_qty = 4
+    pizzas_qty = 3
     chunked_products = list(chunked(products, pizzas_qty))
     iterable_products = BidirectionalIterator(chunked_products)
     context.bot_data['iterable_products'] = iterable_products
@@ -262,10 +271,11 @@ def process_user_address(update, context):
     nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
     distance = nearest_pizzeria.get('distance')
     address = nearest_pizzeria.get('address')
+    context.user_data['nearest_pizzeria'] = address
 
     if distance < 0.5:
         reply_text = dedent(f'''
-        Может, заберете пиццу из нашей пиццерии наподалеку? Она всего в {round(distance*1000, 2)} метрах от вас.
+        Может, заберете пиццу из нашей пиццерии неподалеку? Она всего в {round(distance * 1000, 1)} метрах от вас.
         Адрес пиццерии {address}.
         А можем и бесплатно доставить, нам не сложно :)
         ''')
@@ -280,19 +290,34 @@ def process_user_address(update, context):
         ''')
     else:
         reply_text = dedent(f'''
-        Простите, но так далеко мы пиццу не доставляем. Ближайшая пиццерия аж в {round(distance, 2)} километрах от вас.
+        Простите, но так далеко мы пиццу не доставляем. Ближайшая пиццерия аж в {round(distance, 1)} километрах от вас.
         ''')
 
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('Назад', callback_data='Назад')],
-                                     [InlineKeyboardButton('Указать другой адрес', callback_data='Другой адрес')],
                                      [InlineKeyboardButton('Самовывоз', callback_data='Самовывоз')],
                                      [InlineKeyboardButton('Доставка', callback_data='Доставка')]])
 
     context.bot.send_message(text=reply_text,
                              chat_id=update.effective_user.id,
                              reply_markup=keyboard)
+    # return BotStates.PROCESS_PAYMENT
+    return BotStates.PROCESS_DELIVERY
 
-    return BotStates.PROCESS_GEO
+
+def accept_pickup(update, context):
+    pickup_address = context.user_data['nearest_pizzeria']
+    reply_text = dedent(f'''
+        Адрес пиццерии для самовывоза {pickup_address}        
+        '''
+                        )
+    context.bot.send_message(text=reply_text,
+                             chat_id=update.effective_user.id)
+    # run job
+    return ConversationHandler.END
+
+
+def accept_delivery(update, context):
+    pass
 
 
 def add_client_to_cms(update, context):
@@ -373,7 +398,9 @@ def main():
                 MessageHandler(Filters.text, process_user_address)
             ],
             BotStates.PROCESS_DELIVERY: [
-
+                CallbackQueryHandler(process_user_address, pattern='^Назад$'),
+                CallbackQueryHandler(accept_pickup, pattern='^Самовывоз$'),
+                CallbackQueryHandler(accept_delivery, pattern='^Доставка$'),
             ]
         },
 
