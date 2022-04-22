@@ -25,7 +25,8 @@ from elastic_api import (get_all_products,
                          create_customer,
                          check_customer,
                          renew_token,
-                         fetch_pizzerias_with_coordinates)
+                         fetch_pizzerias_with_coordinates,
+                         create_entry)
 
 from bot_tools import (BidirectionalIterator,
                        format_cart,
@@ -236,8 +237,11 @@ def get_user_email(update, context):
 
 
 def get_user_address(update, context):
+
+    context.user_data['email'] = update.message.text
+
     buttons = [
-        [KeyboardButton('Определеить мое местоположение', request_location=True)]
+        [KeyboardButton('Определить мое местоположение', request_location=True)]
     ]
 
     reply_markup = ReplyKeyboardMarkup(buttons, resize_keyboard=True)
@@ -252,7 +256,7 @@ def get_user_address(update, context):
 
 def process_user_address(update, context):
     if update.message.location:
-        context.user_data['location'] = update.message.location['latitude'], update.message.location['longitude']
+        context.user_data['coordinates'] = update.message.location['latitude'], update.message.location['longitude']
 
     elif update.message.text:
         address = update.message.text
@@ -263,15 +267,19 @@ def process_user_address(update, context):
             )
             return BotStates.WAITING_GEO
 
-        context.user_data['location'] = coordinates
+        context.user_data['coordinates'] = coordinates
 
     pizzerias = fetch_pizzerias_with_coordinates(context.bot_data['token'],
                                                  context.bot_data['flow_slug'])
 
-    nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
+    nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['coordinates'])
     distance = nearest_pizzeria.get('distance')
     address = nearest_pizzeria.get('address')
     context.user_data['nearest_pizzeria'] = nearest_pizzeria
+
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('Назад', callback_data='Назад')],
+                                     [InlineKeyboardButton('Самовывоз', callback_data='Самовывоз')],
+                                     [InlineKeyboardButton('Доставка', callback_data='Доставка')]])
 
     if distance < 0.5:
         reply_text = dedent(f'''
@@ -296,17 +304,39 @@ def process_user_address(update, context):
     else:
         reply_text = dedent(f'''
         Простите, но так далеко мы пиццу не доставляем. Ближайшая пиццерия аж в {round(distance, 1)} километрах от вас.
+        <остроумная шутка, которую я не придумал>
         ''')
-
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('Назад', callback_data='Назад')],
-                                     [InlineKeyboardButton('Самовывоз', callback_data='Самовывоз')],
-                                     [InlineKeyboardButton('Доставка', callback_data='Доставка')]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('В корзину', callback_data='В корзину')]])
 
     context.bot.send_message(text=reply_text,
                              chat_id=update.effective_user.id,
                              reply_markup=keyboard)
     # return BotStates.PROCESS_PAYMENT
     return BotStates.PROCESS_DELIVERY
+
+
+def add_customer_to_cms(update, context):
+    # TODO if not customer, create else do not create
+    bot = context.bot
+
+    token = context.bot_data['token']
+
+    email = context.user_data['email']
+  #  customer_id = create_customer(token,
+  #                                user_id=update.effective_user.id,
+  #                                email=email)['data']['id']
+
+    fields_slugs = ['longitude', 'latitude']
+    values = context.user_data['coordinates']
+    flow_slug = 'customer-address'
+    create_entry(token, fields_slugs, values, flow_slug)
+
+   # check_customer(token, customer_id)
+
+    bot.send_message(
+        text=f'Ваш заказ успешно создан, номер заказа',
+        chat_id=update.effective_user.id,
+    )
 
 
 def accept_pickup(update, context):
@@ -317,6 +347,9 @@ def accept_pickup(update, context):
                         )
     context.bot.send_message(text=reply_text,
                              chat_id=update.effective_user.id)
+
+    add_customer_to_cms(update, context)
+
     return ConversationHandler.END
 
 
@@ -328,7 +361,7 @@ def accept_delivery(update, context):
     cart_items = get_cart(token, cart_id)
     order_price = context.user_data['order_price']
     reply_text = format_cart(cart_items, order_price)
-    latitude, longitude = context.user_data['location']
+    latitude, longitude = context.user_data['coordinates']
     context.bot.send_location(longitude=longitude,
                               latitude=latitude,
                               chat_id=deliveryman_telegram_id)
@@ -337,28 +370,9 @@ def accept_delivery(update, context):
         chat_id=deliveryman_telegram_id
     )
 
+    add_customer_to_cms(update, context)
+
     return ConversationHandler.END
-
-
-
-
-def add_client_to_cms(update, context):
-    bot = context.bot
-
-    token = context.bot_data['token']
-
-    email = update.message.text
-
-    customer_id = create_customer(token,
-                                  user_id=update.message.chat_id,
-                                  email=email)['data']['id']
-
-    check_customer(token, customer_id)
-
-    bot.send_message(
-        text=f'Ваш заказ успешно создан, номер заказа: {customer_id}',
-        chat_id=update.message.chat_id,
-    )
 
 
 def main():
@@ -420,7 +434,7 @@ def main():
                 MessageHandler(Filters.text, process_user_address)
             ],
             BotStates.PROCESS_DELIVERY: [
-                CallbackQueryHandler(process_user_address, pattern='^Назад$'),
+                CallbackQueryHandler(handle_cart, pattern='^В корзину$'),
                 CallbackQueryHandler(accept_pickup, pattern='^Самовывоз$'),
                 CallbackQueryHandler(accept_delivery, pattern='^Доставка$'),
             ]
