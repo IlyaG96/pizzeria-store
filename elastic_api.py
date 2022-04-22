@@ -83,7 +83,8 @@ def get_product_info(elastic_token, product_id):
         'Authorization': f'Bearer {elastic_token}',
     }
 
-    response = requests.get(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/products/{product_id}',
+                            headers=headers)
     response.raise_for_status()
 
     return response.json()
@@ -104,7 +105,8 @@ def delete_image(token, image_id):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.delete(f'https://api.moltin.com/v2/files/{image_id}', headers=headers)
+    response = requests.delete(f'https://api.moltin.com/v2/files/{image_id}',
+                               headers=headers)
     response.raise_for_status()
 
 
@@ -117,7 +119,9 @@ def upload_image(token, image_url):
         'file_location': (None, f'{image_url}'),
     }
 
-    response = requests.post('https://api.moltin.com/v2/files', headers=headers, files=files)
+    response = requests.post('https://api.moltin.com/v2/files',
+                             headers=headers,
+                             files=files)
     response.raise_for_status()
 
     return response.json()
@@ -128,7 +132,8 @@ def get_all_images(token):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.get('https://api.moltin.com/v2/files', headers=headers)
+    response = requests.get('https://api.moltin.com/v2/files',
+                            headers=headers)
     response.raise_for_status()
 
     return response.json()
@@ -154,7 +159,7 @@ def bind_image_with_product(token, image_id, product_id):
     return response.json()
 
 
-def create_currency(token, currency, format):
+def create_currency(token, currency, default, enable):
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -162,18 +167,20 @@ def create_currency(token, currency, format):
     json_data = {
         'data': {
             'type': 'currency',
-            'code': 'RUB',
+            'code': currency,
             'exchange_rate': 1,
             'format': '{price}',
             'decimal_point': '.',
             'thousand_separator': ',',
             'decimal_places': 2,
-            'default': True,
-            'enabled': True,
+            'default': default,
+            'enabled': enable,
         },
     }
 
-    response = requests.post('https://api.moltin.com/v2/currencies', headers=headers, json=json_data)
+    response = requests.post('https://api.moltin.com/v2/currencies',
+                             headers=headers,
+                             json=json_data)
     response.raise_for_status()
 
     return response.json()
@@ -184,7 +191,8 @@ def get_all_currencies(token):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.get('https://api.moltin.com/v2/currencies', headers=headers)
+    response = requests.get('https://api.moltin.com/v2/currencies',
+                            headers=headers)
     response.raise_for_status()
 
     return response.json()
@@ -195,7 +203,8 @@ def delete_currency(token, currency_id):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.delete(f'https://api.moltin.com/v2/currencies/{currency_id}', headers=headers)
+    response = requests.delete(f'https://api.moltin.com/v2/currencies/{currency_id}',
+                               headers=headers)
     response.raise_for_status()
 
     return response.json()
@@ -214,7 +223,9 @@ def update_currency(token, currency_id):
         },
     }
 
-    response = requests.put(f'https://api.moltin.com/v2/currencies/{currency_id}', headers=headers, json=json_data)
+    response = requests.put(f'https://api.moltin.com/v2/currencies/{currency_id}',
+                            headers=headers,
+                            json=json_data)
     response.raise_for_status()
 
     return response.json()
@@ -235,7 +246,9 @@ def create_flow(token, name, slug, description):
         },
     }
 
-    response = requests.post('https://api.moltin.com/v2/flows', headers=headers, json=json_data)
+    response = requests.post('https://api.moltin.com/v2/flows',
+                             headers=headers,
+                             json=json_data)
     response.raise_for_status()
 
     return response.json()
@@ -246,7 +259,8 @@ def delete_flow(token, flow_id):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.delete(f'https://api.moltin.com/v2/flows/{flow_id}', headers=headers)
+    response = requests.delete(f'https://api.moltin.com/v2/flows/{flow_id}',
+                               headers=headers)
     response.raise_for_status()
 
 
@@ -255,13 +269,14 @@ def get_flow(token, flow_id):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_id}', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_id}',
+                            headers=headers)
     response.raise_for_status()
 
     return response.json()
 
 
-def create_field(token, name, type, flow_id, description):
+def create_field(token, name, field_type, flow_id, description):
     headers = {
         'Authorization': f'{token}',
     }
@@ -271,7 +286,7 @@ def create_field(token, name, type, flow_id, description):
             'type': 'field',
             'name': name,
             'slug': f'{name}-field-slug',
-            'field_type': type,
+            'field_type': field_type,
             'description': description,
             'required': False,
             'enabled': True,
@@ -287,7 +302,9 @@ def create_field(token, name, type, flow_id, description):
         },
     }
 
-    response = requests.post('https://api.moltin.com/v2/fields', headers=headers, json=json_data)
+    response = requests.post('https://api.moltin.com/v2/fields',
+                             headers=headers,
+                             json=json_data)
     response.raise_for_status()
 
 
@@ -296,7 +313,8 @@ def get_all_fields(token):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.get('https://api.moltin.com/v2/fields', headers=headers)
+    response = requests.get('https://api.moltin.com/v2/fields',
+                            headers=headers)
     response.raise_for_status()
 
     return response.json()
@@ -307,7 +325,8 @@ def get_fields_by_flow(token, flow_slug):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/fields', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/fields',
+                            headers=headers)
     response.raise_for_status()
 
     return response.json()
@@ -324,8 +343,31 @@ def create_entry(token, fields_slugs, values, flow_slug):
         json_data['data'].update({
             slug: value
         })
-    response = requests.post(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers, json=json_data)
+    response = requests.post(f'https://api.moltin.com/v2/flows/{flow_slug}/entries',
+                             headers=headers,
+                             json=json_data)
     response.raise_for_status()
+    return response.json()
+
+
+def update_entry(token, entry_id, field_slug, value, flow_slug):
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    json_data = {
+        'data': {
+            'id': entry_id,
+            'type': 'entry',
+            field_slug: value}
+    }
+
+    response = requests.put(f'https://api.moltin.com/v2/flows/{flow_slug}/entries/{entry_id}',
+                            headers=headers,
+                            json=json_data)
+    print(response.json())
+    response.raise_for_status()
+
     return response.json()
 
 
@@ -334,7 +376,13 @@ def get_all_entries(token, flow_slug):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/entries', headers=headers)
+    params = {
+        'page': 100,
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/entries',
+                            headers=headers,
+                            params=params)
     response.raise_for_status()
 
     return response.json()
@@ -345,7 +393,8 @@ def get_flow_id_by_slug(token, flow_slug):
         'Authorization': f'Bearer {token}',
     }
 
-    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/fields', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/flows/{flow_slug}/fields',
+                            headers=headers)
     response.raise_for_status()
 
     return next(iter(response.json().get('data'))).get('relationships')['flow']['data']['id']
@@ -356,7 +405,8 @@ def get_image_link(elastic_token, product_image_id):
         f'Authorization': f'Bearer {elastic_token}',
     }
 
-    response = requests.get(f'https://api.moltin.com/v2/files/{product_image_id}', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/files/{product_image_id}',
+                            headers=headers)
     response.raise_for_status()
     image_link = response.json()['data']['link']['href']
 
@@ -515,8 +565,8 @@ def fetch_pizzerias_with_coordinates(token, flow_slug):
     pizzerias_with_coordinates = []
     for pizzeria in pizzerias:
         pizzerias_with_coordinates.append({
-                'address': pizzeria['address'],
-                'coordinates': (pizzeria['latitude'], pizzeria['longitude'])
+            'address': pizzeria['address'],
+            'coordinates': (pizzeria['latitude'], pizzeria['longitude'])
         })
     return pizzerias_with_coordinates
 
@@ -526,8 +576,7 @@ def main():
     env.read_env()
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
     client_id = env.str('ELASTIC_CLIENT_ID')
- #   token = get_client_auth(client_secret, client_id).get('access_token')
- #   fetch_pizzerias_with_coordinates(token, 'pizzeria')
+    token = get_client_auth(client_secret, client_id).get('access_token')
 
 
 if __name__ == '__main__':
