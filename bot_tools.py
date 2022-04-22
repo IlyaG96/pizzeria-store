@@ -8,8 +8,9 @@ def format_product_description(product_description):
 
     formatted_product_description = dedent(
         f'''
-        Название : {product_description['name']}
-        Описание : {product_description['description']}
+        Пицца "{product_description['name']}"
+        Состава : {product_description['description']}
+        Цена: {next(iter(product_description['price']))['amount']} руб.
         '''
     )
 
@@ -23,12 +24,10 @@ def format_cart(cart_items, total_price):
         product = item['name']
         quantity = item['quantity']
         price = item['meta']['display_price']['without_tax']['value']['formatted']
-        description = item['description']
         formatted_cart += dedent(
             f'''
-        Товар {product} 
-        {description}
-        
+        В корзине:
+        Пицца {product}
         В количестве: {quantity} шт
         На сумму: {float(price) * 100} руб.
         ''')
