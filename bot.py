@@ -192,16 +192,16 @@ def handle_cart(update, context):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    total_price = get_cart_total_price(token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
+    order_price = get_cart_total_price(token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
 
-    context.user_data['total_price'] = total_price
+    context.user_data['order_price'] = order_price
 
     bot.delete_message(
         chat_id=callback_query.message.chat_id,
         message_id=callback_query.message.message_id,
     )
     bot.send_message(
-        text=format_cart(cart_items, total_price),
+        text=format_cart(cart_items, order_price),
         chat_id=update.callback_query.message.chat_id,
         reply_markup=reply_markup,
     )
@@ -216,7 +216,7 @@ def get_user_email(update, context):
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('Назад',
                                                            callback_data='Назад')]])
 
-    if context.user_data['total_price'] == '0':
+    if context.user_data['order_price'] == '0':
         bot.edit_message_text(
             text='Похоже, что в корзине нет товаров.',
             chat_id=callback_query.message.chat_id,
@@ -271,7 +271,7 @@ def process_user_address(update, context):
     nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
     distance = nearest_pizzeria.get('distance')
     address = nearest_pizzeria.get('address')
-    context.user_data['nearest_pizzeria'] = address
+    context.user_data['nearest_pizzeria'] = nearest_pizzeria
 
     if distance < 0.5:
         reply_text = dedent(f'''
@@ -279,15 +279,20 @@ def process_user_address(update, context):
         Адрес пиццерии {address}.
         А можем и бесплатно доставить, нам не сложно :)
         ''')
+        context.user_data['delivery_price'] = 0
 
     elif 0.5 < distance < 3:
         reply_text = dedent(f'''
         Похоже, до вас придется ехать на самокате. Доставка будет стоить 100 рублей. Или все-таки самовывоз? :)
         ''')
+        context.user_data['delivery_price'] = 100
+
     elif 3 <= distance < 20:
         reply_text = dedent(f'''
         Похоже, до вас придется ехать на автомобиле. Доставка будет стоить 300 рублей. Или все-таки самовывоз? :)
         ''')
+        context.user_data['delivery_price'] = 300
+
     else:
         reply_text = dedent(f'''
         Простите, но так далеко мы пиццу не доставляем. Ближайшая пиццерия аж в {round(distance, 1)} километрах от вас.
@@ -305,19 +310,36 @@ def process_user_address(update, context):
 
 
 def accept_pickup(update, context):
-    pickup_address = context.user_data['nearest_pizzeria']
+    pickup_address = context.user_data['nearest_pizzeria'].get('address')
     reply_text = dedent(f'''
         Адрес пиццерии для самовывоза {pickup_address}        
         '''
                         )
     context.bot.send_message(text=reply_text,
                              chat_id=update.effective_user.id)
-    # run job
     return ConversationHandler.END
 
 
 def accept_delivery(update, context):
-    pass
+    deliveryman_telegram_id = context.user_data['nearest_pizzeria'].get('deliveryman-telegram-id')
+
+    token = context.bot_data['token']
+    cart_id = context.user_data['cart_id']
+    cart_items = get_cart(token, cart_id)
+    order_price = context.user_data['order_price']
+    reply_text = format_cart(cart_items, order_price)
+    latitude, longitude = context.user_data['location']
+    context.bot.send_location(longitude=longitude,
+                              latitude=latitude,
+                              chat_id=deliveryman_telegram_id)
+    context.bot.send_message(
+        text=reply_text,
+        chat_id=deliveryman_telegram_id
+    )
+
+    return ConversationHandler.END
+
+
 
 
 def add_client_to_cms(update, context):
