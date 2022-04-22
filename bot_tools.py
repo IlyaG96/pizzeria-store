@@ -1,5 +1,7 @@
 from textwrap import dedent
 import requests
+from geopy.distance import distance as dist
+
 
 def format_product_description(product_description):
     product_description = product_description['data']
@@ -66,7 +68,7 @@ class BidirectionalIterator(object):
 def build_menu(buttons, n_cols,
                header_buttons=None,
                footer_buttons=None):
-    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
+    menu = [buttons[button:button + n_cols] for button in range(0, len(buttons), n_cols)]
     if header_buttons:
         for button in header_buttons:
             menu.insert(0, button)
@@ -92,3 +94,19 @@ def fetch_coordinates(apikey, address):
     most_relevant = found_places[0]
     lon, lat = most_relevant['GeoObject']['Point']['pos'].split(' ')
     return lat, lon
+
+
+def get_distance(pizzeria):
+    return pizzeria['distance']
+
+
+def show_nearest_pizzeria(pizzerias, user_location):
+
+    for pizzeria in pizzerias:
+        distance = dist(
+            pizzeria['coordinates'], user_location,
+        ).km
+        pizzeria['distance'] = distance
+    nearest_pizzeria = min(pizzerias, key=get_distance)
+
+    return nearest_pizzeria

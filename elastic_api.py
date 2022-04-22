@@ -512,12 +512,12 @@ def renew_token(bot_context):
 
 def fetch_pizzerias_with_coordinates(token, flow_slug):
     pizzerias = get_all_entries(token, flow_slug)['data']
-    pizzerias_with_coordinates = {}
+    pizzerias_with_coordinates = []
     for pizzeria in pizzerias:
-        pizzerias_with_coordinates[pizzeria['alias']] = {
-            'address': pizzeria['address'],
-            'coordinates': (pizzeria['longitude'], pizzeria['latitude'])
-        }
+        pizzerias_with_coordinates.append({
+                'address': pizzeria['address'],
+                'coordinates': (pizzeria['latitude'], pizzeria['longitude'])
+        })
     return pizzerias_with_coordinates
 
 

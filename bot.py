@@ -14,10 +14,15 @@ from elastic_api import (get_all_products,
                          remove_product_from_cart,
                          create_customer,
                          check_customer,
-                         renew_token)
+                         renew_token,
+                         fetch_pizzerias_with_coordinates)
 
-from bot_tools import BidirectionalIterator, format_cart, format_product_description, build_menu, fetch_coordinates
-from geopy import distance
+from bot_tools import (BidirectionalIterator,
+                       format_cart,
+                       format_product_description,
+                       build_menu,
+                       fetch_coordinates,
+                       show_nearest_pizzeria)
 
 
 class BotStates(Enum):
@@ -236,9 +241,13 @@ def get_user_address(update, context):
 
 def process_user_address(update, context):
 
+    pizzerias = fetch_pizzerias_with_coordinates(context.bot_data['token'],
+                                                 context.bot_data['flow_slug'])
+
     if update.message.location:
         context.user_data['location'] = update.message.location['latitude'], update.message.location['longitude']
-        print(context.user_data['location'])
+        nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
+        print(nearest_pizzeria)
 
     elif update.message.text:
         address = update.message.text
@@ -247,10 +256,11 @@ def process_user_address(update, context):
             update.message.reply_text(
                 'Адрес некорректен. Проверьте то, что вы ввели, или отправьте гео-точку'
             )
-        context.user_data['location'] = coordinates
-        print(context.user_data['location'])
+            return BotStates.WAITING_GEO
 
-        return BotStates.WAITING_GEO
+        context.user_data['location'] = coordinates
+        nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
+        print(nearest_pizzeria)
 
     return BotStates.PROCESS_GEO
 
@@ -298,6 +308,7 @@ def main():
     dispatcher.bot_data['client_id'] = client_id
     dispatcher.bot_data['client_secret'] = client_secret
     dispatcher.bot_data['yandex_geo_api'] = yandex_geo_api
+    dispatcher.bot_data['flow_slug'] = 'pizzeria'
 
     fish_shop = ConversationHandler(
         entry_points=[
@@ -334,8 +345,6 @@ def main():
             BotStates.PROCESS_GEO: [
 
             ],
-
-
         },
 
         per_user=True,
