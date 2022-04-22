@@ -1,8 +1,11 @@
+from textwrap import dedent
+
 import redis
 from enum import Enum, auto
 from environs import Env
-from telegram.ext import Updater, CallbackQueryHandler, CommandHandler, MessageHandler, Filters, ConversationHandler
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import Updater, CallbackQueryHandler, CommandHandler, MessageHandler, Filters, ConversationHandler, Handler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton, \
+    ReplyKeyboardMarkup
 from more_itertools import chunked
 from elastic_api import (get_all_products,
                          get_product_info,
@@ -33,7 +36,7 @@ class BotStates(Enum):
     HANDLE_CART = auto()
     WAITING_GEO = auto()
     WAITING_EMAIL = auto()
-    PROCESS_GEO = auto()
+    PROCESS_DELIVERY = auto()
 
 
 def cancel(update, context):
@@ -70,8 +73,8 @@ def handle_menu(update, context):
                               callback_data=product.get('id')) for product in context.bot_data['products_pack']],
         n_cols=3,
         footer_buttons=[[InlineKeyboardButton('Назад', callback_data='Назад')],
-                       [InlineKeyboardButton('Вперед', callback_data='Вперед')],
-                       [InlineKeyboardButton('Корзина', callback_data='Корзина')]])
+                        [InlineKeyboardButton('Вперед', callback_data='Вперед')],
+                        [InlineKeyboardButton('Корзина', callback_data='Корзина')]])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     bot.send_message(text='Смотри, какая пицца!',
@@ -224,7 +227,6 @@ def get_user_email(update, context):
 
 
 def get_user_address(update, context):
-
     buttons = [
         [KeyboardButton('Определеить мое местоположение', request_location=True)]
     ]
@@ -240,14 +242,8 @@ def get_user_address(update, context):
 
 
 def process_user_address(update, context):
-
-    pizzerias = fetch_pizzerias_with_coordinates(context.bot_data['token'],
-                                                 context.bot_data['flow_slug'])
-
     if update.message.location:
         context.user_data['location'] = update.message.location['latitude'], update.message.location['longitude']
-        nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
-        print(nearest_pizzeria)
 
     elif update.message.text:
         address = update.message.text
@@ -259,8 +255,42 @@ def process_user_address(update, context):
             return BotStates.WAITING_GEO
 
         context.user_data['location'] = coordinates
-        nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
-        print(nearest_pizzeria)
+
+    pizzerias = fetch_pizzerias_with_coordinates(context.bot_data['token'],
+                                                 context.bot_data['flow_slug'])
+
+    nearest_pizzeria = show_nearest_pizzeria(pizzerias, context.user_data['location'])
+    distance = nearest_pizzeria.get('distance')
+    address = nearest_pizzeria.get('address')
+
+    if distance < 0.5:
+        reply_text = dedent(f'''
+        Может, заберете пиццу из нашей пиццерии наподалеку? Она всего в {round(distance*1000, 2)} метрах от вас.
+        Адрес пиццерии {address}.
+        А можем и бесплатно доставить, нам не сложно :)
+        ''')
+
+    elif 0.5 < distance < 3:
+        reply_text = dedent(f'''
+        Похоже, до вас придется ехать на самокате. Доставка будет стоить 100 рублей. Или все-таки самовывоз? :)
+        ''')
+    elif 3 <= distance < 20:
+        reply_text = dedent(f'''
+        Похоже, до вас придется ехать на автомобиле. Доставка будет стоить 300 рублей. Или все-таки самовывоз? :)
+        ''')
+    else:
+        reply_text = dedent(f'''
+        Простите, но так далеко мы пиццу не доставляем. Ближайшая пиццерия аж в {round(distance, 2)} километрах от вас.
+        ''')
+
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('Назад', callback_data='Назад')],
+                                     [InlineKeyboardButton('Указать другой адрес', callback_data='Другой адрес')],
+                                     [InlineKeyboardButton('Самовывоз', callback_data='Самовывоз')],
+                                     [InlineKeyboardButton('Доставка', callback_data='Доставка')]])
+
+    context.bot.send_message(text=reply_text,
+                             chat_id=update.effective_user.id,
+                             reply_markup=keyboard)
 
     return BotStates.PROCESS_GEO
 
@@ -342,9 +372,9 @@ def main():
                 MessageHandler(Filters.location, process_user_address),
                 MessageHandler(Filters.text, process_user_address)
             ],
-            BotStates.PROCESS_GEO: [
+            BotStates.PROCESS_DELIVERY: [
 
-            ],
+            ]
         },
 
         per_user=True,
