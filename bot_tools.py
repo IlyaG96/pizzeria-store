@@ -30,13 +30,13 @@ def format_cart(cart_items, total_price):
         {description}
         
         В количестве: {quantity} шт
-        На сумму: {price}
+        На сумму: {float(price) * 100} руб.
         ''')
 
     return dedent(
         f'''
     {formatted_cart}
-    Общая сумма: {total_price}
+    Общая сумма: {float(total_price) * 100} руб.
     ''')
 
 
