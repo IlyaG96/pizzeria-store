@@ -566,7 +566,8 @@ def fetch_pizzerias_with_coordinates(token, flow_slug):
     for pizzeria in pizzerias:
         pizzerias_with_coordinates.append({
             'address': pizzeria['address'],
-            'coordinates': (pizzeria['latitude'], pizzeria['longitude'])
+            'coordinates': (pizzeria['latitude'], pizzeria['longitude']),
+            'deliveryman-telegram-id': pizzeria['deliveryman-telegram-id']
         })
     return pizzerias_with_coordinates
 
