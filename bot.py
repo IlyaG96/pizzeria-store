@@ -7,12 +7,13 @@ from telegram.ext import (Updater,
                           CommandHandler,
                           MessageHandler,
                           Filters,
-                          ConversationHandler)
+                          ConversationHandler, PreCheckoutQueryHandler)
 from telegram import (InlineKeyboardButton,
                       InlineKeyboardMarkup,
                       ReplyKeyboardRemove,
                       KeyboardButton,
-                      ReplyKeyboardMarkup)
+                      ReplyKeyboardMarkup,
+                      LabeledPrice)
 from more_itertools import chunked
 from elastic_api import (get_all_products,
                          get_product_info,
@@ -46,6 +47,45 @@ class BotStates(Enum):
     PROCESS_DELIVERY = auto()
     ACCEPT_PICKUP = auto()
     ACCEPT_DELIVERY = auto()
+    ACCEPT_PAYMENT = auto()
+    PRECHECKOUT = auto()
+    SUCCESS_PAYMENT = auto()
+
+
+def take_payment(update, context):
+
+    context.user_data['delivery_type'] = update.callback_query.data
+    if context.user_data['delivery_type'] == 'Самовывоз':
+        context.user_data['delivery_price'] = 0
+
+    price = context.user_data['delivery_price'] + float(context.user_data['order_price']) * 100
+    price = int(price)
+    user_id = update.effective_user.id
+    context.bot.send_message(
+        chat_id=user_id,
+        text='Формирую счет...'
+    )
+    payment_token = context.bot_data['payment_token']
+    title = 'Ваш заказ'
+    description = f'Оплата заказа стоимостью {price} рублей'
+    payload = 'Custom-Payload'
+    currency = 'RUB'
+    prices = [LabeledPrice('Стоимость', price * 100)]
+
+    context.bot.send_invoice(
+        user_id, title, description, payload, payment_token, currency, prices
+    )
+    return BotStates.PRECHECKOUT
+
+
+def precheckout(update, _):
+    query = update.pre_checkout_query
+    if query.invoice_payload != 'Custom-Payload':
+        query.answer(ok=False, error_message='Что-то пошло не так...')
+    else:
+        query.answer(ok=True)
+
+    return BotStates.SUCCESS_PAYMENT
 
 
 def cancel(update, context):
@@ -312,7 +352,7 @@ def process_user_address(update, context):
     context.bot.send_message(text=reply_text,
                              chat_id=update.effective_user.id,
                              reply_markup=keyboard)
-    # return BotStates.PROCESS_PAYMENT
+
     return BotStates.PROCESS_DELIVERY
 
 
@@ -324,11 +364,19 @@ def add_customer_to_cms(update, context):
     values = *context.user_data['coordinates'], context.user_data['email']
     flow_slug = 'customer-address'
     create_entry(token, fields_slugs, values, flow_slug)
-    send_message_after = 5
+    send_message_after = 15
     context.job_queue.run_once(send_notification, send_message_after, context=chat_id)
 
 
+def success_payment(update, context):
+    if context.user_data['delivery_type'] == 'Доставка':
+        accept_delivery(update, context)
+    else:
+        accept_pickup(update, context)
+
+
 def accept_pickup(update, context):
+
     pickup_address = context.user_data['nearest_pizzeria'].get('address')
     reply_text = dedent(f'''
         Адрес пиццерии для самовывоза {pickup_address}        
@@ -341,6 +389,7 @@ def accept_pickup(update, context):
 
 
 def accept_delivery(update, context):
+
     deliveryman_telegram_id = context.user_data['nearest_pizzeria'].get('deliveryman-telegram-id')
 
     token = context.bot_data['token']
@@ -372,6 +421,7 @@ def main():
     client_id = env.str('ELASTIC_CLIENT_ID')
     client_secret = env.str('ELASTIC_CLIENT_SECRET')
     yandex_geo_api = env.str('YANDEX_GEO_API')
+    payment_token = env.str('PAYMENT_TOKEN')
 
     updater = Updater(telegram_token)
 
@@ -387,6 +437,7 @@ def main():
     dispatcher.bot_data['client_secret'] = client_secret
     dispatcher.bot_data['yandex_geo_api'] = yandex_geo_api
     dispatcher.bot_data['flow_slug'] = 'pizzeria'
+    dispatcher.bot_data['payment_token'] = payment_token
 
     fish_shop = ConversationHandler(
         entry_points=[
@@ -422,13 +473,20 @@ def main():
             ],
             BotStates.PROCESS_DELIVERY: [
                 CallbackQueryHandler(handle_cart, pattern='^В корзину$'),
-                CallbackQueryHandler(accept_pickup, pattern='^Самовывоз$'),
-                CallbackQueryHandler(accept_delivery, pattern='^Доставка$'),
-            ]
+                CallbackQueryHandler(take_payment, pattern='^Самовывоз$'),
+                CallbackQueryHandler(take_payment, pattern='^Доставка$'),
+            ],
+            BotStates.PRECHECKOUT: [
+                PreCheckoutQueryHandler(precheckout),
+            ],
+            BotStates.SUCCESS_PAYMENT: [
+                MessageHandler(Filters.successful_payment, success_payment)
+            ],
         },
 
         per_user=True,
-        per_chat=True,
+        per_chat=False,
+        allow_reentry=True,
         fallbacks=[
             CommandHandler('cancel', cancel)],
     )
