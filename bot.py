@@ -22,8 +22,6 @@ from elastic_api import (get_all_products,
                          create_cart,
                          get_cart_total_price,
                          remove_product_from_cart,
-                         create_customer,
-                         check_customer,
                          renew_token,
                          fetch_pizzerias_with_coordinates,
                          create_entry)
@@ -33,7 +31,8 @@ from bot_tools import (BidirectionalIterator,
                        format_product_description,
                        build_menu,
                        fetch_coordinates,
-                       show_nearest_pizzeria)
+                       show_nearest_pizzeria,
+                       send_notification)
 
 
 class BotStates(Enum):
@@ -63,6 +62,7 @@ def handle_menu(update, context):
     bot = context.bot
     redis_base = context.bot_data['redis_base']
     token = context.bot_data['token']
+    user_id = update.effective_user.id
 
     products = get_all_products(token).get('data')
     pizzas_qty = 3
@@ -70,7 +70,8 @@ def handle_menu(update, context):
     iterable_products = BidirectionalIterator(chunked_products)
     context.bot_data['iterable_products'] = iterable_products
     context.bot_data['products_pack'] = next(iter(chunked_products))
-    user_id = update.effective_user.id
+    context.user_data['user_id'] = user_id
+
     cart_id = redis_base.hget(user_id, 'cart')
 
     if not cart_id:
@@ -316,27 +317,15 @@ def process_user_address(update, context):
 
 
 def add_customer_to_cms(update, context):
-    # TODO if not customer, create else do not create
-    bot = context.bot
 
     token = context.bot_data['token']
-
-    email = context.user_data['email']
-  #  customer_id = create_customer(token,
-  #                                user_id=update.effective_user.id,
-  #                                email=email)['data']['id']
-
-    fields_slugs = ['longitude', 'latitude']
-    values = context.user_data['coordinates']
+    chat_id = context.user_data['user_id']
+    fields_slugs = ['longitude', 'latitude', 'email']
+    values = *context.user_data['coordinates'], context.user_data['email']
     flow_slug = 'customer-address'
     create_entry(token, fields_slugs, values, flow_slug)
-
-   # check_customer(token, customer_id)
-
-    bot.send_message(
-        text=f'Ваш заказ успешно создан, номер заказа',
-        chat_id=update.effective_user.id,
-    )
+    send_message_after = 5
+    context.job_queue.run_once(send_notification, send_message_after, context=chat_id)
 
 
 def accept_pickup(update, context):
@@ -347,8 +336,6 @@ def accept_pickup(update, context):
                         )
     context.bot.send_message(text=reply_text,
                              chat_id=update.effective_user.id)
-
-    add_customer_to_cms(update, context)
 
     return ConversationHandler.END
 

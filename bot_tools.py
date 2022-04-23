@@ -108,3 +108,11 @@ def show_nearest_pizzeria(pizzerias, user_location):
     nearest_pizzeria = min(pizzerias, key=get_distance)
 
     return nearest_pizzeria
+
+
+def send_notification(context):
+    text = "Приятного аппетита! *место для рекламы сообщение что делать если пицца не пришла"
+    job = context.job
+    context.bot.send_message(
+        job.context, text=text
+    )
