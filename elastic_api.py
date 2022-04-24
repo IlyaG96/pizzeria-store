@@ -1,5 +1,4 @@
 import requests
-from environs import Env
 
 
 def fetch_addresses():
