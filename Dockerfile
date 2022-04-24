@@ -8,4 +8,4 @@ COPY . .
 
 
 ENTRYPOINT ["python"]
-CMD ["request_to_devman.py"]
+CMD ["bot.py"]
