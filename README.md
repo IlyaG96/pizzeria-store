@@ -30,6 +30,10 @@ docker build -t pizzeria-bot .
 ```shell
 docker run -d --env-file ./.env pizzeria-bot
 ```
+Или запустите, используя Docker compose:
+```shell
+docker compose up
+```
 
 ## Настройка перед использованием
 
