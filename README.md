@@ -61,7 +61,7 @@ docker compose up
 
 Для старта телеграм-бота, запустите скрипт:
 ```bash
-$ python bot
+$ python bot.py
 ```
 
 ### elastic_api.py
@@ -71,7 +71,6 @@ $ python bot
 
 * Используются для работы с API [elasticpath.com](https://www.elasticpath.com)
 * [API](https://documentation.elasticpath.com)
-* 
 </details>
 
 ### bot_tools.py
