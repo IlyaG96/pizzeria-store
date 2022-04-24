@@ -1,0 +1,23 @@
+version: "3"
+
+services:
+  web:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: bot.py
+
+    volumes:
+      - .:/pizzeria-bot
+    environment:
+      TG_TOKEN: ${TG_TOKEN}
+      PAYMENT_TOKEN: ${PAYMENT_TOKEN}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${PAYMENT_TOKEN}
+      REDIS_PASSWORD: ${REDIS_PORT}
+      ELASTIC_CLIENT_ID: ${ELASTIC_CLIENT_ID}
+      ELASTIC_CLIENT_SECRET: ${ELASTIC_CLIENT_SECRET}
+      YANDEX_GEO_API: ${YANDEX_GEO_API}
+    ports:
+      - '0.0.0.0:8000:8000'
