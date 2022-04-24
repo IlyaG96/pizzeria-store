@@ -571,14 +571,3 @@ def fetch_pizzerias_with_coordinates(token, flow_slug):
         })
     return pizzerias_with_coordinates
 
-
-def main():
-    env = Env()
-    env.read_env()
-    client_secret = env.str('ELASTIC_CLIENT_SECRET')
-    client_id = env.str('ELASTIC_CLIENT_ID')
-    token = get_client_auth(client_secret, client_id).get('access_token')
-
-
-if __name__ == '__main__':
-    main()
