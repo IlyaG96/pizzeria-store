@@ -33,6 +33,7 @@ from bot_tools import (BidirectionalIterator,
                        build_menu)
 from geo_api import show_nearest_pizzeria, fetch_coordinates
 
+
 class BotStates(Enum):
     START = auto()
     HANDLE_MENU = auto()
@@ -50,7 +51,6 @@ class BotStates(Enum):
 
 
 def take_payment(update, context):
-
     context.user_data['delivery_type'] = update.callback_query.data
     if context.user_data['delivery_type'] == 'Самовывоз':
         context.user_data['delivery_price'] = 0
@@ -220,14 +220,13 @@ def handle_cart(update, context):
         remove_product_from_cart(token, cart_id, product_id)
         cart_items = get_cart(token, cart_id)
 
-    keyboard = [
-        [InlineKeyboardButton('В меню',
-                              callback_data='В меню')],
-        [InlineKeyboardButton(f"Убрать {item.get('name')}",
-                              callback_data=item.get('id')) for item in cart_items['data']],
-        [InlineKeyboardButton('Оплатить',
-                              callback_data='Оплатить')]
-    ]
+    keyboard = build_menu(
+        [InlineKeyboardButton(f"Убрать пиццу {item.get('name')}",
+                              callback_data=item.get('id')) for item in cart_items['data']], n_cols=1,
+        footer_buttons=[[InlineKeyboardButton('Оплатить',
+                                              callback_data='Оплатить')],
+                        [InlineKeyboardButton('В меню',
+                                              callback_data='В меню')]])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     order_price = get_cart_total_price(token, cart_id)['data']['meta']['display_price']['with_tax']['formatted']
@@ -274,7 +273,6 @@ def get_user_email(update, context):
 
 
 def get_user_address(update, context):
-
     context.user_data['email'] = update.message.text
 
     buttons = [
@@ -361,7 +359,6 @@ def send_notification(context):
 
 
 def add_customer_to_cms(update, context):
-
     token = context.bot_data['token']
     chat_id = update.effective_user.id
     fields_slugs = ['longitude', 'latitude', 'email']
@@ -380,7 +377,6 @@ def success_payment(update, context):
 
 
 def accept_pickup(update, context):
-
     pickup_address = context.user_data['nearest_pizzeria'].get('address')
     reply_text = dedent(f'''
         Адрес пиццерии для самовывоза {pickup_address}        
@@ -393,7 +389,6 @@ def accept_pickup(update, context):
 
 
 def accept_delivery(update, context):
-
     deliveryman_telegram_id = context.user_data['nearest_pizzeria'].get('deliveryman-telegram-id')
 
     token = context.bot_data['token']
