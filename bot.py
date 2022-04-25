@@ -30,11 +30,8 @@ from elastic_api import (get_all_products,
 from bot_tools import (BidirectionalIterator,
                        format_cart,
                        format_product_description,
-                       build_menu,
-                       fetch_coordinates,
-                       show_nearest_pizzeria,
-                       send_notification)
-
+                       build_menu)
+from geo_api import show_nearest_pizzeria, fetch_coordinates
 
 class BotStates(Enum):
     START = auto()
@@ -353,6 +350,14 @@ def process_user_address(update, context):
                              reply_markup=keyboard)
 
     return BotStates.PROCESS_DELIVERY
+
+
+def send_notification(context):
+    text = "Приятного аппетита! *место для рекламы сообщение что делать если пицца не пришла"
+    job = context.job
+    context.bot.send_message(
+        job.context, text=text
+    )
 
 
 def add_customer_to_cms(update, context):
