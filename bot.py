@@ -110,7 +110,6 @@ def handle_menu(update, context):
     iterable_products = BidirectionalIterator(chunked_products)
     context.user_data['iterable_products'] = iterable_products
     context.user_data['products_pack'] = next(iter(chunked_products))
-    context.user_data['user_id'] = user_id
 
     cart_id = redis_base.hget(user_id, 'cart')
 
