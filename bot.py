@@ -108,8 +108,8 @@ def handle_menu(update, context):
     pizzas_qty = 3
     chunked_products = list(chunked(products, pizzas_qty))
     iterable_products = BidirectionalIterator(chunked_products)
-    context.bot_data['iterable_products'] = iterable_products
-    context.bot_data['products_pack'] = next(iter(chunked_products))
+    context.user_data['iterable_products'] = iterable_products
+    context.user_data['products_pack'] = next(iter(chunked_products))
     context.user_data['user_id'] = user_id
 
     cart_id = redis_base.hget(user_id, 'cart')
@@ -121,7 +121,7 @@ def handle_menu(update, context):
 
     keyboard = build_menu(
         [InlineKeyboardButton(product.get('name'),
-                              callback_data=product.get('id')) for product in context.bot_data['products_pack']],
+                              callback_data=product.get('id')) for product in context.user_data['products_pack']],
         n_cols=3,
         footer_buttons=[[InlineKeyboardButton('Назад', callback_data='Назад')],
                         [InlineKeyboardButton('Вперед', callback_data='Вперед')],
@@ -138,19 +138,19 @@ def handle_menu(update, context):
 def handle_products(update, context):
     user_id = update.effective_user.id
     callback_query = update.callback_query
-    iterable_products = context.bot_data['iterable_products']
+    iterable_products = context.user_data['iterable_products']
 
     if callback_query.data == 'Назад':
         products_pack = iterable_products.prev()
-        context.bot_data['products_pack'] = products_pack
+        context.user_data['products_pack'] = products_pack
 
     elif callback_query.data == 'Вперед':
         products_pack = iterable_products.next()
-        context.bot_data['products_pack'] = products_pack
+        context.user_data['products_pack'] = products_pack
 
     keyboard = build_menu(
         [InlineKeyboardButton(product.get('name'),
-                              callback_data=product.get('id')) for product in context.bot_data['products_pack']],
+                              callback_data=product.get('id')) for product in context.user_data['products_pack']],
         n_cols=3,
         footer_buttons=[[InlineKeyboardButton('Назад', callback_data='Назад')],
                         [InlineKeyboardButton('Вперед', callback_data='Вперед')],
@@ -359,7 +359,7 @@ def process_user_address(update, context):
 def add_customer_to_cms(update, context):
 
     token = context.bot_data['token']
-    chat_id = context.user_data['user_id']
+    chat_id = update.effective_user.id
     fields_slugs = ['longitude', 'latitude', 'email']
     values = *context.user_data['coordinates'], context.user_data['email']
     flow_slug = 'customer-address'
